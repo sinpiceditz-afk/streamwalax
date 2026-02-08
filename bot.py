@@ -91,15 +91,27 @@ async def handle_video(client, message):
             os.remove(download_path)
 
         if success:
-            # 5. Generate Link
-            # Agar aapne R2 me Custom Domain lagaya hai to wo use karein
-            final_link = f"{R2_PUBLIC_DOMAIN}/{unique_name}"
+            # 5. Generate Web App Link
+            # Pehle R2 ka direct link banao
+            raw_r2_link = f"{R2_PUBLIC_DOMAIN}/{unique_name}"
+            
+            # Phir usse Web App URL ke sath jodo
+            # NOTE: Yaha apni Netlify/Blogger site ka link dalein
+            MY_WEBSITE = "https://apki-website.netlify.app" 
+            
+            import urllib.parse
+            safe_name = urllib.parse.quote(file_name)
+            
+            # Final Link jo Ads dikhayega aur Video chalayega
+            web_app_link = f"{MY_WEBSITE}/?src={raw_r2_link}&name={safe_name}"
             
             await msg.edit_text(
-                f"✅ **Upload Successful!**\n\n"
+                f"✅ **Video Ready to Watch!**\n\n"
                 f"📂 **File:** `{file_name}`\n"
-                f"🚀 **Fast Stream Link:**\n{final_link}",
-                disable_web_page_preview=True
+                f"👇 **Click to Watch & Download:**",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("▶️ Play Online (Fast)", url=web_app_link)]
+                ])
             )
         else:
             await msg.edit_text("❌ Upload Failed. Check Logs.")
