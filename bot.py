@@ -4,8 +4,10 @@ import os
 from flask import Flask
 from threading import Thread
 
-# Environment variable se Bot Token lena
+# Environment variables se Tokens lena
 TOKEN = os.environ.get("BOT_TOKEN")
+IMGBB_API_KEY = os.environ.get("IMGBB_API_KEY") # Naya variable ImgBB ke liye
+
 bot = telebot.TeleBot(TOKEN)
 
 # Flask app for Render
@@ -28,7 +30,7 @@ def start_message(message):
 @bot.message_handler(content_types=['photo'])
 def handle_photo(message):
     try:
-        msg = bot.reply_to(message, "⏳ Processing image...")
+        msg = bot.reply_to(message, "⏳ Uploading to server, please wait...")
         
         # Image download karna
         file_info = bot.get_file(message.photo[-1].file_id)
@@ -40,19 +42,24 @@ def handle_photo(message):
         with open(file_name, 'wb') as new_file:
             new_file.write(downloaded_file)
             
-        # Catbox.moe API par upload karna (Works 100% on Render)
+        # ImgBB API par upload karna (100% Works on Render)
         with open(file_name, 'rb') as f:
-            url = "https://catbox.moe/user/api.php"
-            data = {"reqtype": "fileupload"}
-            files = {"fileToUpload": f}
-            response = requests.post(url, data=data, files=files)
+            url = "https://api.imgbb.com/1/upload"
+            payload = {
+                "key": IMGBB_API_KEY
+            }
+            files = {
+                "image": f
+            }
+            response = requests.post(url, data=payload, files=files)
             
         if response.status_code == 200:
-            # Catbox direct link return karta hai plain text me
-            link = response.text
-            bot.edit_message_text(f"✅ **Image Uploaded!**\n\n🔗 Link: {link}", message.chat.id, msg.message_id)
+            # ImgBB direct link nikalna
+            json_data = response.json()
+            link = json_data['data']['url']
+            bot.edit_message_text(f"✅ **Image Successfully Uploaded!**\n\n🔗 Direct Link: {link}", message.chat.id, msg.message_id)
         else:
-            bot.edit_message_text(f"❌ Upload failed. Server returned code: {response.status_code}", message.chat.id, msg.message_id)
+            bot.edit_message_text(f"❌ Upload failed. Server Error: {response.status_code}\nEnsure your ImgBB API key is correct.", message.chat.id, msg.message_id)
             
         # Local file delete karna taaki storage full na ho
         if os.path.exists(file_name):
@@ -62,10 +69,13 @@ def handle_photo(message):
         bot.edit_message_text(f"❌ Error: {str(e)}", message.chat.id, msg.message_id)
 
 if __name__ == "__main__":
-    # Flask server ko background me start karna
-    t = Thread(target=run_server)
-    t.start()
-    
-    # Bot ko start karna
-    print("Bot is running...")
-    bot.infinity_polling()
+    if not TOKEN or not IMGBB_API_KEY:
+        print("ERROR: BOT_TOKEN or IMGBB_API_KEY is missing!")
+    else:
+        # Flask server ko background me start karna
+        t = Thread(target=run_server)
+        t.start()
+        
+        # Bot ko start karna
+        print("Bot is running...")
+        bot.infinity_polling()
