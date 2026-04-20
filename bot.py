@@ -8,7 +8,7 @@ from threading import Thread
 TOKEN = os.environ.get("BOT_TOKEN")
 bot = telebot.TeleBot(TOKEN)
 
-# Flask app banayenge taaki Render crash na ho (Render needs a web server)
+# Flask app for Render
 app = Flask(__name__)
 
 @app.route('/')
@@ -34,32 +34,32 @@ def handle_photo(message):
         file_info = bot.get_file(message.photo[-1].file_id)
         downloaded_file = bot.download_file(file_info.file_path)
         
-        # Unique file name banana (taaki multiple users me clash na ho)
+        # Unique file name banana
         file_name = f"temp_{message.message_id}.jpg"
         
         with open(file_name, 'wb') as new_file:
             new_file.write(downloaded_file)
             
-        # Telegraph API par upload karna
+        # Catbox.moe API par upload karna (Works 100% on Render)
         with open(file_name, 'rb') as f:
-            response = requests.post("https://telegra.ph/upload", files={'file': ('file', f, 'image/jpeg')})
+            url = "https://catbox.moe/user/api.php"
+            data = {"reqtype": "fileupload"}
+            files = {"fileToUpload": f}
+            response = requests.post(url, data=data, files=files)
             
         if response.status_code == 200:
-            # Link generate karna
-            json_response = response.json()
-            if isinstance(json_response, list) and 'src' in json_response[0]:
-                link = "https://telegra.ph" + json_response[0]['src']
-                bot.edit_message_text(f"✅ **Image Uploaded!**\n\n🔗 Link: {link}", message.chat.id, msg.message_id)
-            else:
-                bot.edit_message_text("❌ Upload failed. Please try again.", message.chat.id, msg.message_id)
+            # Catbox direct link return karta hai plain text me
+            link = response.text
+            bot.edit_message_text(f"✅ **Image Uploaded!**\n\n🔗 Link: {link}", message.chat.id, msg.message_id)
         else:
-            bot.edit_message_text("❌ Server error. Try again later.", message.chat.id, msg.message_id)
+            bot.edit_message_text(f"❌ Upload failed. Server returned code: {response.status_code}", message.chat.id, msg.message_id)
             
-        # Local file delete karna
-        os.remove(file_name)
+        # Local file delete karna taaki storage full na ho
+        if os.path.exists(file_name):
+            os.remove(file_name)
         
     except Exception as e:
-        bot.reply_to(message, f"❌ Error: {str(e)}")
+        bot.edit_message_text(f"❌ Error: {str(e)}", message.chat.id, msg.message_id)
 
 if __name__ == "__main__":
     # Flask server ko background me start karna
